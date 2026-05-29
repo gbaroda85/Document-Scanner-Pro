@@ -83,6 +83,36 @@ function applyMagicColor(data: Uint8ClampedArray, brightness: number, contrast: 
   }
 }
 
+/** Fast 2-pass box blur using prefix sums. Returns a new smoothed Float32Array. */
+function boxBlurGray(src: Float32Array, width: number, height: number, r: number): Float32Array {
+  const temp = new Float32Array(src.length);
+  const dst  = new Float32Array(src.length);
+  const pfx  = new Float32Array(Math.max(width, height) + 1);
+
+  // Horizontal pass
+  for (let y = 0; y < height; y++) {
+    const row = y * width;
+    pfx[0] = 0;
+    for (let x = 0; x < width; x++) pfx[x + 1] = pfx[x] + src[row + x];
+    for (let x = 0; x < width; x++) {
+      const a = Math.max(0, x - r), b = Math.min(width, x + r + 1);
+      temp[row + x] = (pfx[b] - pfx[a]) / (b - a);
+    }
+  }
+
+  // Vertical pass
+  for (let x = 0; x < width; x++) {
+    pfx[0] = 0;
+    for (let y = 0; y < height; y++) pfx[y + 1] = pfx[y] + temp[y * width + x];
+    for (let y = 0; y < height; y++) {
+      const a = Math.max(0, y - r), b = Math.min(height, y + r + 1);
+      dst[y * width + x] = (pfx[b] - pfx[a]) / (b - a);
+    }
+  }
+
+  return dst;
+}
+
 function applyDocs(data: Uint8ClampedArray, width: number, height: number, brightness: number): void {
   const n = width * height;
 
@@ -92,25 +122,29 @@ function applyDocs(data: Uint8ClampedArray, width: number, height: number, brigh
     gray[i] = 0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2];
   }
 
-  // 2. Build integral image (summed area table) for O(1) local mean lookups
-  //    Size: (width+1) × (height+1) with a 1-pixel zero border on top and left
+  // 2. Pre-blur (radius 2) — smooths photo gradients so they don't produce noise.
+  //    Text strokes are dark enough relative to their surrounding paper that they
+  //    remain well below the local mean even after blurring.
+  const smooth = boxBlurGray(gray, width, height, 2);
+
+  // 3. Build integral image from the SMOOTHED gray for O(1) local mean lookups
   const W1 = width + 1;
   const integral = new Float64Array(W1 * (height + 1));
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       integral[(y + 1) * W1 + (x + 1)] =
-        gray[y * width + x] +
+        smooth[y * width + x] +
         integral[y * W1 + (x + 1)] +
         integral[(y + 1) * W1 + x] -
         integral[y * W1 + x];
     }
   }
 
-  // 3. Adaptive local threshold — half-window ~8% of shorter side, min 15px
+  // 4. Adaptive threshold: compare SMOOTHED pixel against SMOOTHED local mean
+  //    hw ≈ 8 % of shorter dimension — large enough to span paper + text zones.
+  //    C: how much darker than the local mean = ink. Brightness shifts C.
   const hw = Math.min(Math.max(Math.floor(Math.min(width, height) * 0.08), 15), 60);
-  // C: how many levels below local mean a pixel must be to count as ink.
-  // Negative brightness nudges threshold up (more ink), positive makes it forgiving.
-  const C = 12 - (brightness - 100) * 0.15;
+  const C  = 15 - (brightness - 100) * 0.15;
 
   for (let y = 0; y < height; y++) {
     const y1 = Math.max(0, y - hw);
@@ -125,8 +159,9 @@ function applyDocs(data: Uint8ClampedArray, width: number, height: number, brigh
         integral[(y2 + 1) * W1 + x1] +
         integral[y1 * W1 + x1];
       const localMean = sum / area;
-      // Ink = much darker than neighbourhood; paper = close to or above it
-      const val = gray[y * width + x] < localMean - C ? 0 : 255;
+      // Photo gradients: smooth[i] ≈ localMean → white
+      // Ink strokes:     smooth[i] << localMean  → black
+      const val = smooth[y * width + x] < localMean - C ? 0 : 255;
       const idx = (y * width + x) * 4;
       data[idx] = data[idx + 1] = data[idx + 2] = val;
     }
