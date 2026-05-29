@@ -1,0 +1,69 @@
+Act as an Expert Senior Full-Stack Developer and UI/UX Designer. I want to build a fully functional, production-ready, client-side web application that is an exact clone of the "Clear Scanner" mobile app. 
+
+The app must process everything on the client side (browser) for maximum privacy and speed, using modern web technologies.
+
+### 🛠️ Tech Stack to Use:
+- Frontend Framework: React.js or Next.js (App Router) with TypeScript
+- Styling: Tailwind CSS & Shadcn/ui (for clean, modern dark/light UI)
+- Icons: Lucide-React
+- Core Image Processing: OpenCV.js (for edge detection and perspective warping)
+- OCR (Text Extraction): Tesseract.js
+- PDF Generation: jsPDF and html2canvas
+- Local Storage: IndexedDB (via localForage) to save documents locally so data isn't lost on refresh.
+
+---
+
+### 🚀 Key Features & Detailed Functional Requirements:
+
+1. HOME DASHBOARD & DOC MANAGEMENT
+- A clean dashboard showing "Recent Documents" in a grid/list view with thumbnails, titles, and creation dates.
+- Search bar to filter documents by name.
+- Floating Action Buttons (FAB): "Camera Scan" (opens web cam) and "Upload Image" (drag-and-drop or file picker).
+- Ability to create folders, rename, delete, and multi-select documents to merge them into a single PDF.
+
+2. ADVANCED CAMERA & IMAGE CAPTURE
+- Access the device's rear/front camera with a live preview overlay.
+- "Auto-capture" toggle: Automatically take a picture when a document-like rectangular shape is detected.
+- Manual flash/torch toggle (where supported by browser API).
+
+3. SMART CROP & PERSPECTIVE WARPING (The Core Feature)
+- Once an image is uploaded/captured, automatically detect the edges of the document using OpenCV.js (Canny Edge Detection + FindContours).
+- Display a cropping overlay with 4 interactive corner handles (anchors) and connecting lines so the user can manually adjust the borders.
+- Implement a magnifying glass loupe effect near the finger/cursor when dragging a corner for precise adjustment.
+- Apply a Perspective Warp algorithm to straighten the cropped area into a perfect, flat rectangle.
+
+4. REAL-TIME CLEAR SCANNER FILTERS
+Provide 5 distinct real-time canvas-based image processing filters:
+- Original: Unprocessed image.
+- Magic Color / Photo: Enhances colors, removes shadows, and boosts brightness.
+- Docs (Clear Scanner Signature): High-contrast black and white mode that makes text extremely sharp and clears background noise/shadows.
+- Clear: Smoothes out uneven lighting while keeping original colors.
+- Grayscale: Pure black, white, and grey tones.
+- Include sliders for manual Contrast, Brightness, and Sharpness adjustment.
+
+5. MULTI-PAGE DOCUMENT EDITOR
+- Inside a document, users can add more pages, delete specific pages, or reorder them using a drag-and-drop interface.
+- Rotate pages (90° clockwise/counter-clockwise).
+
+6. REAL OCR (TEXT EXTRACTION)
+- Integrate Tesseract.js to extract text from the current page.
+- Show a split-screen or modal: Left side processed image, Right side editable extracted text.
+- "Copy to Clipboard" and "Download as .txt" buttons for the OCR text.
+
+7. HIGH-QUALITY EXPORT & SHARING
+- Export options: "Download as PDF" or "Download as JPEG/PNG".
+- For PDF: Provide quality settings (Low, Medium, Highest) and page size options (A4, Letter, Legal).
+- Generate clean, multi-page PDFs where text remains searchable if possible, or images are perfectly aligned without quality loss.
+
+---
+
+### 🎨 UI/UX Specifications:
+- Minimalist, premium aesthetic with a smooth dark/light mode toggle.
+- Accent Color: Clear Scanner Teal/Green (#0x008080 or similar premium green).
+- Skeleton loaders while OpenCV.js and Tesseract.js are initializing.
+- Fully responsive design (optimized heavily for mobile browsers but looks great on desktop).
+
+### 💻 Implementation Instructions:
+- Provide the code in a clean, modular structure (Components, Hooks, Services/Utils).
+- Ensure all third-party libraries (OpenCV.js, Tesseract.js, jsPDF) are imported efficiently without crashing the main thread (use Web Workers where necessary).
+- Do not write placeholder code or `// TODO` comments. Write the complete, working logic for image processing and UI state management.
