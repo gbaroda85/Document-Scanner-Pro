@@ -83,28 +83,69 @@ function applyMagicColor(data: Uint8ClampedArray, brightness: number, contrast: 
   }
 }
 
-function applyDocs(data: Uint8ClampedArray, brightness: number, contrast: number): void {
-  const bAdj = (brightness - 100) * 2.55;
-  const cFactor = (contrast / 100) * 3.5;
-  const threshold = 135;
-  for (let i = 0; i < data.length; i += 4) {
-    let gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-    gray = (gray - 128) * cFactor + 128 + bAdj;
-    const val = gray > threshold ? 255 : 0;
-    data[i] = data[i + 1] = data[i + 2] = val;
+function applyDocs(data: Uint8ClampedArray, brightness: number, _contrast: number): void {
+  const n = data.length / 4;
+
+  // Convert to grayscale and collect a sample for percentile thresholding
+  const gray = new Float32Array(n);
+  const sample: number[] = [];
+  const step = Math.max(1, Math.floor(n / 4000));
+  for (let i = 0; i < n; i++) {
+    gray[i] = 0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2];
+    if (i % step === 0) sample.push(gray[i]);
+  }
+  sample.sort((a, b) => a - b);
+
+  // p10 = dark ink reference, p90 = light background reference
+  const p10 = sample[Math.floor(sample.length * 0.10)] ?? 0;
+  const p90 = sample[Math.floor(sample.length * 0.90)] ?? 255;
+  const range = Math.max(p90 - p10, 1);
+
+  // Threshold: normalize then split at 55% — adapts to yellow/dark paper
+  const bAdj = (brightness - 100) * 0.5;
+  const splitPoint = p10 + range * (0.55 + bAdj / 100);
+
+  for (let i = 0; i < n; i++) {
+    const val = gray[i] > splitPoint ? 255 : 0;
+    data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = val;
   }
 }
 
-function applyClear(data: Uint8ClampedArray, brightness: number, contrast: number): void {
-  const bAdj = ((brightness - 100) * 2.55) + 8;
-  const cFactor = contrast / 100;
-  for (let i = 0; i < data.length; i += 4) {
-    for (let c = 0; c < 3; c++) {
-      let val = data[i + c];
-      val = (val - 128) * cFactor + 128 + bAdj;
-      if (val > 200) val = 255;
-      data[i + c] = clamp(val);
-    }
+function applyClear(data: Uint8ClampedArray, brightness: number, _contrast: number): void {
+  const n = data.length / 4;
+
+  // Sample pixels to find per-channel 95th percentile (the background "white")
+  const step = Math.max(1, Math.floor(n / 4000));
+  const rS: number[] = [], gS: number[] = [], bS: number[] = [];
+  for (let i = 0; i < n; i += step) {
+    rS.push(data[i * 4]);
+    gS.push(data[i * 4 + 1]);
+    bS.push(data[i * 4 + 2]);
+  }
+  rS.sort((a, b) => a - b); gS.sort((a, b) => a - b); bS.sort((a, b) => a - b);
+  const p = Math.floor(rS.length * 0.95);
+  const maxR = Math.max(rS[p] ?? 255, 32);
+  const maxG = Math.max(gS[p] ?? 255, 32);
+  const maxB = Math.max(bS[p] ?? 255, 32);
+
+  // Apply per-channel normalization to neutralize color cast, then boost contrast
+  const bAdj = (brightness - 100) * 2.55;
+  const enhance = 1.25;
+
+  for (let i = 0; i < n; i++) {
+    let r = (data[i * 4] / maxR) * 255;
+    let g = (data[i * 4 + 1] / maxG) * 255;
+    let b = (data[i * 4 + 2] / maxB) * 255;
+
+    // Mild contrast stretch around midpoint
+    r = clamp((r - 128) * enhance + 128 + bAdj);
+    g = clamp((g - 128) * enhance + 128 + bAdj);
+    b = clamp((b - 128) * enhance + 128 + bAdj);
+
+    // Push near-white (background) to pure white
+    if (r > 218 && g > 218 && b > 218) { r = g = b = 255; }
+
+    data[i * 4] = r; data[i * 4 + 1] = g; data[i * 4 + 2] = b;
   }
 }
 
