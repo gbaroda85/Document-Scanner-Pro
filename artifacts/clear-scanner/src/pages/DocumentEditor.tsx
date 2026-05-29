@@ -58,6 +58,7 @@ export default function DocumentEditor() {
   const docId = params?.id;
 
   const [doc, setDoc] = useState<ScanDocument | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [currentPageIdx, setCurrentPageIdx] = useState(0);
   const [filter, setFilter] = useState<FilterType>('original');
   const [brightness, setBrightness] = useState(100);
@@ -71,16 +72,22 @@ export default function DocumentEditor() {
 
   useEffect(() => {
     const load = async () => {
-      if (docId) {
-        const d = await getDocument(docId);
-        if (d) { setDoc(d); return; }
-      }
-      const cropResult = (window as any).__cropResult as string | undefined;
-      if (cropResult) {
-        const newDoc = await createDocFromCrop(cropResult, (window as any).__cropDocId);
-        setDoc(newDoc);
-        delete (window as any).__cropResult;
-        delete (window as any).__cropDocId;
+      try {
+        if (docId) {
+          const d = await getDocument(docId);
+          if (d) { setDoc(d); return; }
+        }
+        const cropResult = (window as any).__cropResult as string | undefined;
+        if (cropResult) {
+          const newDoc = await createDocFromCrop(cropResult, (window as any).__cropDocId);
+          setDoc(newDoc);
+          delete (window as any).__cropResult;
+          delete (window as any).__cropDocId;
+          return;
+        }
+        setLoadError(true);
+      } catch {
+        setLoadError(true);
       }
     };
     load();
@@ -206,12 +213,27 @@ export default function DocumentEditor() {
     navigate('/camera');
   };
 
-  if (!doc) {
+  if (loadError) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center text-muted-foreground">
           <FileText className="w-12 h-12 mx-auto mb-3 opacity-40" />
-          <p>Loading document...</p>
+          <p className="font-medium mb-1">Document not found</p>
+          <p className="text-sm mb-4 opacity-60">It may have been deleted or didn't save correctly.</p>
+          <button onClick={() => navigate('/')} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700 transition-colors">
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!doc) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center text-muted-foreground">
+          <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm">Loading document...</p>
         </div>
       </div>
     );

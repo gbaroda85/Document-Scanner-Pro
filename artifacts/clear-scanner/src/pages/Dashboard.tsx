@@ -70,9 +70,9 @@ export default function Dashboard() {
     if (selected.size < 2) return;
     const ids = [...selected];
     const docs = await Promise.all(ids.map(id => getDocument(id)));
-    const validDocs = docs.filter(Boolean) as Document[];
+    const validDocs = docs.filter(Boolean) as ScanDocument[];
     const allPages = validDocs.flatMap(d => d.pages);
-    const merged: Document = {
+    const merged: ScanDocument = {
       id: crypto.randomUUID(),
       title: `Merged Document`,
       folderId: activeFolderId,

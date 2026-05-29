@@ -15,8 +15,8 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/camera" component={CameraCapture} />
       <Route path="/crop" component={CropEditor} />
-      <Route path="/editor" component={DocumentEditor} />
       <Route path="/editor/:id" component={DocumentEditor} />
+      <Route path="/editor" component={DocumentEditor} />
       <Route>
         <div className="flex items-center justify-center h-screen">
           <div className="text-center">
