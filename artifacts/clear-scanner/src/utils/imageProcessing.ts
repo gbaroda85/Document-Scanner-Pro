@@ -21,7 +21,7 @@ export function applyFilter(
       applyMagicColor(data, brightness, contrast);
       break;
     case 'docs':
-      applyDocs(data, brightness, contrast);
+      applyDocs(data, canvas.width, canvas.height, brightness);
       break;
     case 'clear':
       applyClear(data, brightness, contrast);
@@ -83,31 +83,53 @@ function applyMagicColor(data: Uint8ClampedArray, brightness: number, contrast: 
   }
 }
 
-function applyDocs(data: Uint8ClampedArray, brightness: number, _contrast: number): void {
-  const n = data.length / 4;
+function applyDocs(data: Uint8ClampedArray, width: number, height: number, brightness: number): void {
+  const n = width * height;
 
-  // Convert to grayscale and collect a sample for percentile thresholding
+  // 1. Convert to grayscale
   const gray = new Float32Array(n);
-  const sample: number[] = [];
-  const step = Math.max(1, Math.floor(n / 4000));
   for (let i = 0; i < n; i++) {
     gray[i] = 0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2];
-    if (i % step === 0) sample.push(gray[i]);
   }
-  sample.sort((a, b) => a - b);
 
-  // p10 = dark ink reference, p90 = light background reference
-  const p10 = sample[Math.floor(sample.length * 0.10)] ?? 0;
-  const p90 = sample[Math.floor(sample.length * 0.90)] ?? 255;
-  const range = Math.max(p90 - p10, 1);
+  // 2. Build integral image (summed area table) for O(1) local mean lookups
+  //    Size: (width+1) × (height+1) with a 1-pixel zero border on top and left
+  const W1 = width + 1;
+  const integral = new Float64Array(W1 * (height + 1));
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      integral[(y + 1) * W1 + (x + 1)] =
+        gray[y * width + x] +
+        integral[y * W1 + (x + 1)] +
+        integral[(y + 1) * W1 + x] -
+        integral[y * W1 + x];
+    }
+  }
 
-  // Threshold: normalize then split at 55% — adapts to yellow/dark paper
-  const bAdj = (brightness - 100) * 0.5;
-  const splitPoint = p10 + range * (0.55 + bAdj / 100);
+  // 3. Adaptive local threshold — half-window ~8% of shorter side, min 15px
+  const hw = Math.min(Math.max(Math.floor(Math.min(width, height) * 0.08), 15), 60);
+  // C: how many levels below local mean a pixel must be to count as ink.
+  // Negative brightness nudges threshold up (more ink), positive makes it forgiving.
+  const C = 12 - (brightness - 100) * 0.15;
 
-  for (let i = 0; i < n; i++) {
-    const val = gray[i] > splitPoint ? 255 : 0;
-    data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = val;
+  for (let y = 0; y < height; y++) {
+    const y1 = Math.max(0, y - hw);
+    const y2 = Math.min(height - 1, y + hw);
+    for (let x = 0; x < width; x++) {
+      const x1 = Math.max(0, x - hw);
+      const x2 = Math.min(width - 1, x + hw);
+      const area = (y2 - y1 + 1) * (x2 - x1 + 1);
+      const sum =
+        integral[(y2 + 1) * W1 + (x2 + 1)] -
+        integral[y1 * W1 + (x2 + 1)] -
+        integral[(y2 + 1) * W1 + x1] +
+        integral[y1 * W1 + x1];
+      const localMean = sum / area;
+      // Ink = much darker than neighbourhood; paper = close to or above it
+      const val = gray[y * width + x] < localMean - C ? 0 : 255;
+      const idx = (y * width + x) * 4;
+      data[idx] = data[idx + 1] = data[idx + 2] = val;
+    }
   }
 }
 
