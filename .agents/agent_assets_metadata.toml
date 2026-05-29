@@ -1,0 +1,14 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "2vuExD3ObWQH63ALkrjth"
+uri = "file://clear-scanner.tar.gz"
+type = "unspecified"
+title = "Clear Scanner — Full Source Code"
+
+[[outputs]]
+id = "Jndda_7OChpf75J53_P6_"
+uri = "file://clear-scanner.zip"
+type = "unspecified"
+title = "Clear Scanner — Full Source Code (.zip)"
