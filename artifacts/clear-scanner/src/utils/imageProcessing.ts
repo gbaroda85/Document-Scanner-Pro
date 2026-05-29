@@ -122,10 +122,10 @@ function applyDocs(data: Uint8ClampedArray, width: number, height: number, brigh
     gray[i] = 0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2];
   }
 
-  // 2. Pre-blur (radius 2) — smooths photo gradients so they don't produce noise.
-  //    Text strokes are dark enough relative to their surrounding paper that they
-  //    remain well below the local mean even after blurring.
-  const smooth = boxBlurGray(gray, width, height, 2);
+  // 2. Pre-blur the gray (radius 3) to use as a SMOOTH local-mean reference.
+  //    This is only used to build the integral image — the actual pixel values
+  //    compared below are the ORIGINAL gray[], so text never thickens.
+  const smooth = boxBlurGray(gray, width, height, 3);
 
   // 3. Build integral image from the SMOOTHED gray for O(1) local mean lookups
   const W1 = width + 1;
@@ -140,11 +140,14 @@ function applyDocs(data: Uint8ClampedArray, width: number, height: number, brigh
     }
   }
 
-  // 4. Adaptive threshold: compare SMOOTHED pixel against SMOOTHED local mean
-  //    hw ≈ 8 % of shorter dimension — large enough to span paper + text zones.
-  //    C: how much darker than the local mean = ink. Brightness shifts C.
-  const hw = Math.min(Math.max(Math.floor(Math.min(width, height) * 0.08), 15), 60);
-  const C  = 15 - (brightness - 100) * 0.15;
+  // 4. Adaptive threshold:
+  //    - Pixel value: ORIGINAL gray  → text stays its natural stroke width
+  //    - Reference:   SMOOTHED local mean → photo gradients yield a stable mean
+  //    - C = 22: pixels must be >22 levels below local mean to count as ink.
+  //      Photo gradients vary slowly, so they stay < 22 below mean → white.
+  //      Ink strokes on paper are 80–200 levels below local mean → black.
+  const hw = Math.min(Math.max(Math.floor(Math.min(width, height) * 0.09), 15), 70);
+  const C  = 22 - (brightness - 100) * 0.18;
 
   for (let y = 0; y < height; y++) {
     const y1 = Math.max(0, y - hw);
@@ -159,9 +162,8 @@ function applyDocs(data: Uint8ClampedArray, width: number, height: number, brigh
         integral[(y2 + 1) * W1 + x1] +
         integral[y1 * W1 + x1];
       const localMean = sum / area;
-      // Photo gradients: smooth[i] ≈ localMean → white
-      // Ink strokes:     smooth[i] << localMean  → black
-      const val = smooth[y * width + x] < localMean - C ? 0 : 255;
+      // KEY: compare ORIGINAL gray[i], not smooth[i] — preserves natural stroke width
+      const val = gray[y * width + x] < localMean - C ? 0 : 255;
       const idx = (y * width + x) * 4;
       data[idx] = data[idx + 1] = data[idx + 2] = val;
     }
