@@ -1,15 +1,6 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "artifacts/api-server/api/index.ts",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "artifacts/api-server/api/index.ts"
-    }
-  ]
+  "buildCommand": "pnpm --filter @workspace/clear-scanner run build",
+  "outputDirectory": "artifacts/clear-scanner/dist/public",
+  "installCommand": "pnpm install",
+  "framework": "vite"
 }
