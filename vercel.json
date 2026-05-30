@@ -1,9 +1,0 @@
-{
-  "buildCommand": "pnpm --filter @workspace/clear-scanner run build",
-  "outputDirectory": "artifacts/clear-scanner/dist",
-  "installCommand": "pnpm install",
-  "framework": null,
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
-}
