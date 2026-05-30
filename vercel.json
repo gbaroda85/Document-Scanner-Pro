@@ -1,6 +1,15 @@
 {
-  "buildCommand": "pnpm --filter @workspace/api-server run build",
-  "installCommand": "pnpm install",
-  "outputDirectory": "artifacts/api-server/dist",
-  "framework": null
+  "version": 2,
+  "builds": [
+    {
+      "src": "artifacts/api-server/api/index.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "artifacts/api-server/api/index.ts"
+    }
+  ]
 }
