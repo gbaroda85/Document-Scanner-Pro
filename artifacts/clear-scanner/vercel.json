@@ -1,6 +1,6 @@
 {
-  "buildCommand": "pnpm --filter @workspace/clear-scanner run build",
-  "outputDirectory": "artifacts/clear-scanner/dist/public",
+  "buildCommand": "pnpm run build",
+  "outputDirectory": "dist/public",
   "installCommand": "pnpm install",
   "framework": null,
   "rewrites": [
