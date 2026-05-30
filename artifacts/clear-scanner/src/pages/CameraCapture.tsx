@@ -72,15 +72,14 @@ export default function CameraCapture() {
   }, [autoCapture]);
 
   useEffect(() => {
-    if (isActive) {
-      const t = setTimeout(() => {
-        autoDetectRef.current = requestAnimationFrame(drawOverlay);
-      }, 500);
-      return () => {
-        clearTimeout(t);
-        cancelAnimationFrame(autoDetectRef.current);
-      };
-    }
+    if (!isActive) return;
+    const t = setTimeout(() => {
+      autoDetectRef.current = requestAnimationFrame(drawOverlay);
+    }, 500);
+    return () => {
+      clearTimeout(t);
+      cancelAnimationFrame(autoDetectRef.current);
+    };
   }, [isActive, drawOverlay]);
 
   const handleCapture = () => {
